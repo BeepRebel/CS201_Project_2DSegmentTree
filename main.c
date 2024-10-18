@@ -136,6 +136,62 @@ int sumQuery(int row, int t_lx, int t_rx, int lx, int rx, int ly, int ry)
            sumQuery(2 * row + 1, t_mid + 1, t_rx, max(lx, t_mid + 1), rx, ly, ry);  // right child query
 }
 
+// function to query the maximum value of a rectangular sub-region for a specific row segment
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - col: the index representing the current column segment in the segment tree
+// - t_ly, t_ry: the range of columns that the current node covers
+// - ly, ry: the range of columns we want to query for the maximum value
+int maxQueryRow(int row, int col, int t_ly, int t_ry, int ly, int ry)
+{
+    // if the queried range is invalid (e.g., start is greater than end), return INT_MIN as there's no valid value
+    if (ly > ry)
+        return INT_MIN;
+
+    // if the current segment matches exactly with the query range, return the maximum value stored in this node
+    if (ly == t_ly && ry == t_ry)
+    {
+        return RangeMax[row][col]; 
+    }
+
+    // find the middle column of the current segment
+    int t_mid = (t_ly + t_ry) / 2;
+
+    // recursively query the left child (first half of the column range)
+    // combine it with the result of querying the right child (second half of the column range) to find the maximum
+    return max(maxQueryRow(row, 2 * col, t_ly, t_mid, ly, min(ry, t_mid)),               // left child query
+               maxQueryRow(row, 2 * col + 1, t_mid + 1, t_ry, max(ly, t_mid + 1), ry));  // right child query
+}
+
+// function to query the maximum value of a rectangular sub-region in the 2d segment tree
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - t_lx, t_rx: the range of rows that the current node covers
+// - lx, rx: the range of rows we want to query for the maximum value
+// - ly, ry: the range of columns we want to query for the maximum value
+int maxQuery(int row, int t_lx, int t_rx, int lx, int rx, int ly, int ry)
+{
+    // if the queried range is invalid (e.g., start is greater than end), return INT_MIN as there's no valid value
+    if (lx > rx)
+        return INT_MIN;
+
+    // if the current segment matches exactly with the row query range,
+    // delegate the column query to maxQueryRow function
+    if (lx == t_lx && rx == t_rx)
+    {
+        return maxQueryRow(row, 1, 0, m - 1, ly, ry); 
+    }
+
+    // find the middle row of the current segment
+    int t_mid = (t_lx + t_rx) / 2;
+
+    // recursively query the left child (first half of the row range)
+    // combine it with the result of querying the right child (second half of the row range) to find the maximum
+    return max(maxQuery(2 * row, t_lx, t_mid, lx, min(rx, t_mid), ly, ry),               // left child query
+               maxQuery(2 * row + 1, t_mid + 1, t_rx, max(lx, t_mid + 1), rx, ly, ry));  // right child query
+}
+
+
 
 int main()
 {
@@ -167,5 +223,9 @@ int main()
 
     // performing sum query 
     printf("Sum of subgrid (1, 1) to (3, 3): %d\n", sumQuery(1, 0, n - 1, 1, 3, 1, 3));
+
+    // performing max query 
+    printf("Max value in subgrid (1, 1) to (3, 3): %d\n", maxQuery(1, 0, n - 1, 1, 3, 1, 3));
+    
     return 0;
 }
