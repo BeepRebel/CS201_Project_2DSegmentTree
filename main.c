@@ -81,6 +81,62 @@ void build(int row, int lx, int rx)
     buildRow(row, lx, rx, 1, 0, m - 1);
 }
 
+// function to query the sum of a rectangular sub-region for a specific row segment
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - col: the index representing the current column segment in the segment tree
+// - t_ly, t_ry: the range of columns that the current node covers
+// - ly, ry: the range of columns we want to query for the sum
+int sumQueryRow(int row, int col, int t_ly, int t_ry, int ly, int ry)
+{
+    // if the queried range is invalid (e.g., start is greater than end), return 0 as there's no sum
+    if (ly > ry)
+        return 0;
+
+    // if the current segment matches exactly with the query range, return the sum stored in this node
+    if (ly == t_ly && ry == t_ry)
+    {
+        return RangeSum[row][col]; 
+    }
+
+    // find the middle column of the current segment
+    int tmy = (t_ly + t_ry) / 2;
+
+    // recursively query the left child (first half of the column range)
+    // combine it with the result of querying the right child (second half of the column range)
+    return sumQueryRow(row, 2 * col, t_ly, tmy, ly, min(ry, tmy)) +             // left child query
+           sumQueryRow(row, 2 * col + 1, tmy + 1, t_ry, max(ly, tmy + 1), ry);  // right child query
+}
+
+// function to query the sum of a rectangular sub-region in the 2D segment tree
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - t_lx, t_rx: the range of rows that the current node covers
+// - lx, rx: the range of rows we want to query for the sum
+// - ly, ry: the range of columns we want to query for the sum
+int sumQuery(int row, int t_lx, int t_rx, int lx, int rx, int ly, int ry)
+{
+    // if the queried range is invalid (e.g., start is greater than end), return 0 as there's no sum
+    if (lx > rx)
+        return 0;
+
+    // if the current segment matches exactly with the row query range,
+    // delegate the column query to sumQueryRow function
+    if (lx == t_lx && rx == t_rx)
+    {
+        return sumQueryRow(row, 1, 0, m - 1, ly, ry); 
+    }
+
+    // find the middle row of the current segment
+    int t_mid = (t_lx + t_rx) / 2;
+
+    // recursively query the left child (first half of the row range)
+    // combine it with the result of querying the right child (second half of the row range)
+    return sumQuery(2 * row, t_lx, t_mid, lx, min(rx, t_mid), ly, ry) +             // left child query
+           sumQuery(2 * row + 1, t_mid + 1, t_rx, max(lx, t_mid + 1), rx, ly, ry);  // right child query
+}
+
+
 int main()
 {
     // input sample grid size.
@@ -109,5 +165,7 @@ int main()
     //building the segment tree for the input grid.
     build(1, 0, n - 1);
 
+    // performing sum query 
+    printf("Sum of subgrid (1, 1) to (3, 3): %d\n", sumQuery(1, 0, n - 1, 1, 3, 1, 3));
     return 0;
 }
