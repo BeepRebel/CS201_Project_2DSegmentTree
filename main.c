@@ -191,6 +191,83 @@ int maxQuery(int row, int t_lx, int t_rx, int lx, int rx, int ly, int ry)
                maxQuery(2 * row + 1, t_mid + 1, t_rx, max(lx, t_mid + 1), rx, ly, ry));  // right child query
 }
 
+// function to update a single point in the segment tree for a specific row segment
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - col: the index representing the current column segment in the segment tree
+// - lx, rx: the range of rows being covered by the current node
+// - ly, ry: the range of columns being covered by the current node
+// - a, b: the coordinates (row, column) of the point we want to update
+// - value: the new value to update the point to
+void updateRow(int row, int lx, int rx, int col, int ly, int ry, int a, int b, int value)
+{
+    // if we're at a single column (a leaf node in the column segment tree)
+    if (ly == ry)
+    { 
+        // check if we're at a single row (a leaf node in the row segment tree)
+        if (lx == rx)
+        {                               
+            // if both the row and column are leaf nodes, update the point directly
+            RangeSum[row][col] = value; // update the sum value at the point
+            RangeMax[row][col] = value; // update the max value at the point
+        }
+        else
+        { 
+            // if it's not a single row, merge the updates from both child row nodes
+            RangeSum[row][col] = RangeSum[2 * row][col] + RangeSum[2 * row + 1][col]; // update the sum
+            RangeMax[row][col] = max(RangeMax[2 * row][col], RangeMax[2 * row + 1][col]); // update the max
+        }
+    }
+    else
+    { 
+        // if it's not a single column, split the columns and update the relevant child
+        int mid = (ly + ry) / 2;
+        
+        // if the column index is within the left half, update the left child
+        if (b <= mid)
+        {
+            updateRow(row, lx, rx, 2 * col, ly, mid, a, b, value);
+        }
+        else
+        {
+            // otherwise, update the right child
+            updateRow(row, lx, rx, 2 * col + 1, mid + 1, ry, a, b, value);
+        }
+
+        // after updating the children, merge their sums and max values
+        RangeSum[row][col] = RangeSum[row][2 * col] + RangeSum[row][2 * col + 1]; // merge sums
+        RangeMax[row][col] = max(RangeMax[row][2 * col], RangeMax[row][2 * col + 1]); // merge maxes
+    }
+}
+
+// function to update a single point in the 2d segment tree
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - lx, rx: the range of rows being covered by the current node
+// - a, b: the coordinates (row, column) of the point we want to update
+// - value: the new value to update the point to
+void update(int row, int lx, int rx, int a, int b, int value)
+{
+    // if it's not a single row (non-leaf node in the row segment tree)
+    if (lx != rx)
+    {
+        int mid = (lx + rx) / 2;
+        
+        // if the row index is within the left half, update the left child
+        if (a <= mid)
+        {
+            update(2 * row, lx, mid, a, b, value); 
+        }
+        else
+        {
+            // otherwise, update the right child
+            update(2 * row + 1, mid + 1, rx, a, b, value);
+        }
+    }
+    
+    // after updating the rows, update the column segment tree for this row segment
+    updateRow(row, lx, rx, 1, 0, m - 1, a, b, value); 
+}
 
 
 int main()
@@ -226,6 +303,13 @@ int main()
 
     // performing max query 
     printf("Max value in subgrid (1, 1) to (3, 3): %d\n", maxQuery(1, 0, n - 1, 1, 3, 1, 3));
+
+    // update a value and query again
+    update(1, 0, n - 1, 2, 2, 20); // update grid[2][2] to 20
+    // sum
+    printf("Sum of subgrid (1, 1) to (3, 3) after update: %d\n", sumQuery(1, 0, n - 1, 1, 3, 1, 3));
+    // max
+    printf("Max value in subgrid (1, 1) to (3, 3) after update: %d\n", maxQuery(1, 0, n - 1, 1, 3, 1, 3));
     
     return 0;
 }
