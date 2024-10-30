@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <stdbool.h>
 
 #define MAX_ROWS 1000 //defined the maximum no. of rows.
 #define MAX_COLS 1000 // defined the maximum no. of columns.
@@ -378,6 +380,61 @@ int maximalRegion(int** region, int x, int y, int* topLeftX, int* topLeftY, int*
 
     free(temp);  // Free allocated memory for temp array
     return maxArea;
+}
+
+// function to check if a given cell (r, c) can be included in BFS.
+bool isSafe(int **M, int r, int c, int ROW, int COL) {
+    return (r >= 0) && (r < ROW) && (c >= 0) && 
+           (c < COL) && (M[r][c] == 1);
+}
+
+// breadth-first search to visit all cells in the current connected region (island).
+void findRegion(int **M, int sr, int sc, int ROW, int COL) {
+    // defining row and column offsets for the 8 neighboring cells.
+    int dr[] = { -1, -1, -1, 0, 0, 1, 1, 1 }; 
+    int dc[] = { -1, 0, 1, -1, 1, -1, 0, 1 }; 
+
+    // initializing a queue to store coordinates for BFS.
+    int queue[ROW * COL][2];
+    int front = 0, rear = 0; // setting up front and rear pointers for the queue.
+    queue[rear][0] = sr; // enqueue the starting row.
+    queue[rear][1] = sc; // enqueue the starting column.
+    rear++; // moving the rear pointer forward.
+    M[sr][sc] = 0;  // marking the starting cell as visited by setting it to 0.
+
+    // continue until there are no more cells to process in the queue.
+    while (front < rear) {
+        int r = queue[front][0]; // get the current row index from the front of the queue.
+        int c = queue[front][1]; // get the current column index from the front of the queue.
+        front++; // move to the next cell in the queue.
+
+        // exploring all 8 neighboring cells.
+        for (int k = 0; k < 8; k++) {
+            int row = r + dr[k]; // calculate the new row index.
+            int col = c + dc[k]; // calculate the new column index.
+            if (isSafe(M, row, col, ROW, COL)) { // check if the new cell is safe to visit.
+                queue[rear][0] = row; // enqueue the new row index.
+                queue[rear][1] = col; // enqueue the new column index.
+                rear++; // move the rear pointer forward.
+                M[row][col] = 0;  // mark the cell as visited.
+            }
+        }
+    }
+}
+
+// this function counts the number of connected regions (islands) in the binary matrix.
+int countRegions(int **regions, int numRow, int numCol) {
+    int numRegions = 0; // starting the count for regions.
+    // loop through each cell in the matrix to find unvisited regions.
+    for (int r = 0; r < numRow; r++) {
+        for (int c = 0; c < numCol; c++) {
+            if (regions[r][c] == 1) { // if the cell is part of an unvisited region.
+                findRegion(regions, r, c, numRow, numCol); // call BFS to mark all connected cells.
+                numRegions++; // increment the count of regions found.
+            }
+        }
+    }
+    return numRegions; // return the total number of connected regions.
 }
 
 int main()
