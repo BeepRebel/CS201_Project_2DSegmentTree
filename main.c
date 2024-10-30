@@ -9,6 +9,10 @@ int RangeSum[4 * MAX_ROWS][4 * MAX_COLS]; // for sum queries.
 int RangeMax[4 * MAX_ROWS][4 * MAX_COLS]; // for max queries.
 int grid[MAX_ROWS][MAX_COLS];  //input grid defined globally.
 
+int marked[MAX_ROWS][MAX_COLS]; // Matrix to track cells above the threshold
+int threshold; // Define a threshold for marking cells
+
+
 // utility function to get maximum of two numbers.
 int max(int a, int b)
 {
@@ -40,6 +44,7 @@ void buildRow(int row, int lx, int rx, int col, int ly, int ry)
             // initializing the sum and column with the cell value.
             RangeSum[row][col] = grid[lx][ly];
             RangeMax[row][col] = grid[lx][ly];
+            marked[lx][ly] = (grid[lx][ly] > threshold) ? 1 : 0;
         }
         //case when not a single row.
         else
@@ -210,6 +215,7 @@ void updateRow(int row, int lx, int rx, int col, int ly, int ry, int a, int b, i
             // if both the row and column are leaf nodes, update the point directly
             RangeSum[row][col] = value; // update the sum value at the point
             RangeMax[row][col] = value; // update the max value at the point
+            marked[lx][ly] = (value > threshold) ? 1 : 0;
         }
         else
         { 
@@ -269,6 +275,110 @@ void update(int row, int lx, int rx, int a, int b, int value)
     updateRow(row, lx, rx, 1, 0, m - 1, a, b, value); 
 }
 
+int* nearestSmallerToLeft(int* heights, int size, int pseudo) {
+    int* v = (int*)malloc(size * sizeof(int));
+    int stack[size][2];  // Stack to store elements and their indices
+    int top = -1;
+
+    for (int i = 0; i < size; i++) {
+        // Pop elements from stack that are greater than or equal to the current element
+        while (top >= 0 && stack[top][0] >= heights[i]) {
+            top--;
+        }
+        // Store the index of the nearest smaller element to the left, or -1 if none
+        v[i] = (top == -1) ? pseudo : stack[top][1];
+        
+        // Push current element and index to the stack
+        stack[++top][0] = heights[i];
+        stack[top][1] = i;
+    }
+    return v;
+}
+
+// Function to find the nearest smaller elements to the right for each element in `heights`
+int* nearestSmallerToRight(int* heights, int size, int pseudo) {
+    int* v1 = (int*)malloc(size * sizeof(int));
+    int stack[size][2];  // Stack to store elements and their indices
+    int top = -1;
+
+    for (int i = size - 1; i >= 0; i--) {
+        // Pop elements from stack that are greater than or equal to the current element
+        while (top >= 0 && stack[top][0] >= heights[i]) {
+            top--;
+        }
+        // Store the index of the nearest smaller element to the right, or `pseudo` if none
+        v1[i] = (top == -1) ? pseudo : stack[top][1];
+        
+        // Push current element and index to the stack
+        stack[++top][0] = heights[i];
+        stack[top][1] = i;
+    }
+    return v1;
+}
+
+// Function to calculate the maximum area in a histogram-like row
+int subregionArea(int* subRegions, int size, int* leftCoord, int* rightCoord, int row) {
+    int* left = nearestSmallerToLeft(subRegions, size, -1);     // Indices of nearest smaller elements to the left
+    int* right = nearestSmallerToRight(subRegions, size, size); // Indices of nearest smaller elements to the right
+    int max_area = 0;
+
+    // Iterate through each element in the row to calculate potential area
+    for (int i = 0; i < size; i++) {
+        int width = right[i] - left[i] - 1;  // Calculate width of the rectangle
+        int area = subRegions[i] * width;    // Calculate area for this rectangle
+
+        // Update max_area and coordinates if a new maximum area is found
+        if (area > max_area) {
+            max_area = area;
+            *leftCoord = left[i] + 1;        // Left column of the rectangle
+            *rightCoord = right[i] - 1;      // Right column of the rectangle
+        }
+    }
+
+    // Free allocated memory for left and right arrays
+    free(left);
+    free(right);
+    return max_area;
+}
+
+// Main function to find the maximal rectangular region in a binary matrix
+int maximalRegion(int** region, int x, int y, int* topLeftX, int* topLeftY, int* bottomRightX, int* bottomRightY) {
+    int* temp = (int*)malloc(y * sizeof(int));  // Temp array to store heights of histogram columns
+    
+    // Initialize temp with the first row of region
+    for (int j = 0; j < y; j++) {
+        temp[j] = region[0][j];
+    }
+
+    // Initialize coordinates for the maximal region
+    *topLeftX = *topLeftY = *bottomRightX = *bottomRightY = 0;
+    
+    int maxArea = subregionArea(temp, y, topLeftY, bottomRightY, 0);  // Calculate initial max area for the first row
+
+    // Process each subsequent row to calculate the maximal rectangular region
+    for (int i = 1; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            // Update temp array based on the current row; reset height if 0, otherwise accumulate height
+            temp[j] = (region[i][j] == 0) ? 0 : temp[j] + region[i][j];
+        }
+
+        // Track the left-most and right-most columns of the max area subregion
+        int leftCoord, rightCoord;
+        int area = subregionArea(temp, y, &leftCoord, &rightCoord, i);
+        
+        // Update max area and coordinates if a new maximum area is found
+        if (area > maxArea) {
+            maxArea = area;
+            *topLeftX = i - temp[leftCoord] + 1; // Top row of the rectangle
+            *topLeftY = leftCoord;               // Left column
+            *bottomRightX = i;                   // Bottom row
+            *bottomRightY = rightCoord;          // Right column
+        }
+    }
+
+    free(temp);  // Free allocated memory for temp array
+    return maxArea;
+}
 
 int main()
 {
@@ -286,7 +396,8 @@ int main()
     };
 
     // copying the grid to the declared global grid.
-
+    threshold = 10; // Example threshold
+    // Copy example grid to global grid
     for (int i = 0; i < n; i++)
     {
         for (int j = 0; j < m; j++)
@@ -310,6 +421,37 @@ int main()
     printf("Sum of subgrid (1, 1) to (3, 3) after update: %d\n", sumQuery(1, 0, n - 1, 1, 3, 1, 3));
     // max
     printf("Max value in subgrid (1, 1) to (3, 3) after update: %d\n", maxQuery(1, 0, n - 1, 1, 3, 1, 3));
-    
+    int** markedArray = (int**)malloc(n * sizeof(int*));
+    for (int i = 0; i < n; i++) {
+        markedArray[i] = (int*)malloc(m * sizeof(int));
+        for (int j = 0; j < m; j++) {
+            markedArray[i][j] = marked[i][j];
+        }
+    }
+        printf("markedArray:\n");
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++) {
+            printf("%d ", markedArray[i][j]);
+        }
+        printf("\n");
+    }
+
+
+    int topLeftX, topLeftY, bottomRightX, bottomRightY;
+    int maxArea = maximalRegion(markedArray, n, m, &topLeftX, &topLeftY, &bottomRightX, &bottomRightY);
+
+    printf("Maximal Rectangle Area: %d\n", maxArea);
+    printf("Top-left corner: (%d, %d)\n", topLeftX, topLeftY);
+    printf("Bottom-right corner: (%d, %d)\n", bottomRightX, bottomRightY);
+
+    int numRegions = countRegions(markedArray , n , m);
+    printf("%d\n" , numRegions);
+
+    // Free allocated memory for markedArray
+    for (int i = 0; i < n; i++) {
+        free(markedArray[i]);
+    }
+    free(markedArray);
+
     return 0;
 }
