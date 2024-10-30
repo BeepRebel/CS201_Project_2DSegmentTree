@@ -2,9 +2,13 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define MAX_ROWS 1000 //defined the maximum no. of rows.
 #define MAX_COLS 1000 // defined the maximum no. of columns.
+#define GRID_SIZE 100
+#define MAX_LINE_LENGTH 256
+#define MISSING_VALUE -999
 
 int n, m;  //dimensions of the grid.
 int RangeSum[4 * MAX_ROWS][4 * MAX_COLS]; // for sum queries.
@@ -437,8 +441,67 @@ int countRegions(int **regions, int numRow, int numCol) {
     return numRegions; // return the total number of connected regions.
 }
 
+// Function to read CSV file and populate rain matrix
+void read_csv(const char *filename, double rain_matrix[GRID_SIZE][GRID_SIZE], double temp_matrix[GRID_SIZE][GRID_SIZE], double aqi_matrix[GRID_SIZE][GRID_SIZE], double humidity_matrix[GRID_SIZE][GRID_SIZE]) {
+    FILE *file = fopen(filename, "r");
+    if (!file) {
+        perror("Unable to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    char line[MAX_LINE_LENGTH];
+    double rain, temp, aqi, humidity;
+    int n = 0; // Counter for filling the grid
+
+    // Initialize the matrices with missing values
+    for (int i = 0; i < GRID_SIZE; i++) {
+        for (int j = 0; j < GRID_SIZE; j++) {
+            rain_matrix[i][j] = MISSING_VALUE;
+            temp_matrix[i][j] = MISSING_VALUE;
+            aqi_matrix[i][j] = MISSING_VALUE;
+            humidity_matrix[i][j] = MISSING_VALUE;
+        }
+    }
+
+    // Read each line in the CSV file, skipping the header
+    fgets(line, sizeof(line), file); // Skip header line
+    while (fgets(line, sizeof(line), file)) {
+        // Parse rain, temp, aqi, and humidity values from the CSV line
+        if (sscanf(line, "%*lf,%*lf,%lf,%*lf,%*lf,%lf,%lf,%lf", &rain, &temp, &aqi, &humidity) == 4) {
+            // Calculate row and column based on counter n
+            int row = n / GRID_SIZE;
+            int col = n % GRID_SIZE;
+
+            // Check if indices are within the matrix bounds
+            if (row < GRID_SIZE && col < GRID_SIZE) {
+                rain_matrix[row][col] = rain;
+                temp_matrix[row][col] = temp;
+                aqi_matrix[row][col] = aqi;
+                humidity_matrix[row][col] = humidity;
+                n++; // Increment the counter
+            } else {
+                fprintf(stderr, "Index out of bounds for n: %d\n", n);
+                break; // Break the loop if out of bounds
+            }
+        } else {
+            fprintf(stderr, "Failed to parse line: %s\n", line);
+        }
+    }
+
+    fclose(file);
+}
+
 int main()
-{
+{    
+    double rain_matrix[GRID_SIZE][GRID_SIZE];
+    double temp_matrix[GRID_SIZE][GRID_SIZE];
+    double aqi_matrix[GRID_SIZE][GRID_SIZE];
+    double humidity_matrix[GRID_SIZE][GRID_SIZE];
+
+
+    // Read the CSV data and populate the matrices
+    read_csv("combined_data_2019.csv", rain_matrix, temp_matrix, aqi_matrix, humidity_matrix);
+    
     // input sample grid size.
     n = 4;
     m = 4;
