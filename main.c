@@ -3,19 +3,27 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <math.h>
 
-#define MAX_ROWS 1000 //defined the maximum no. of rows.
-#define MAX_COLS 1000 // defined the maximum no. of columns.
 #define GRID_SIZE 100
 #define MAX_LINE_LENGTH 256
 #define MISSING_VALUE -999
+#define THRESHOLD 10.0
+
+// Define a struct to hold all four data points
+typedef struct {
+    double rain;
+    double temp;
+    double aqi;
+    double humidity;
+} WeatherData;
 
 int n, m;  //dimensions of the grid.
-int RangeSum[4 * MAX_ROWS][4 * MAX_COLS]; // for sum queries.
-int RangeMax[4 * MAX_ROWS][4 * MAX_COLS]; // for max queries.
-int grid[MAX_ROWS][MAX_COLS];  //input grid defined globally.
+int RangeSum[4 * GRID_SIZE][4 * GRID_SIZE]; // for sum queries.
+int RangeMax[4 * GRID_SIZE][4 * GRID_SIZE]; // for max queries.
+int grid[GRID_SIZE][GRID_SIZE];  //input grid defined globally.
 
-int marked[MAX_ROWS][MAX_COLS]; // Matrix to track cells above the threshold
+int marked[GRID_SIZE][GRID_SIZE]; // Matrix to track cells above the threshold
 int threshold; // Define a threshold for marking cells
 
 
@@ -32,65 +40,68 @@ int min(int a, int b)
 }
 
 
-// row: index in the segment tree for rows.
-// lx, rx: range of rows being covered by the current node.
-// col: index in the segment tree for columns.
-// ly, ry: range of columns being covered by the current node.
+// Enum to specify the attribute type
+enum Attribute {
+    RAIN,
+    TEMPERATURE,
+    AQI,
+    HUMIDITY
+};
 
-// function to build the column segment tree for a particular row.
+// Function to get the attribute value from a weather matrix cell
+double getAttributeValue(WeatherData data, int attribute) {
+    switch (attribute) {
+        case 0: return data.rain;         // RAIN
+        case 1: return data.temp;         // TEMPERATURE
+        case 2: return data.aqi;          // AQI
+        case 3: return data.humidity;     // HUMIDITY
+        default: return 0;                // Default case (shouldn't happen)
+    }
+}
 
-void buildRow(int row, int lx, int rx, int col, int ly, int ry)
-{
-    // case for a single column.
-    if (ly == ry)
-    {
-        // case for single row.
-        if (lx == rx)
-        {
-            // initializing the sum and column with the cell value.
-            RangeSum[row][col] = grid[lx][ly];
-            RangeMax[row][col] = grid[lx][ly];
-            marked[lx][ly] = (grid[lx][ly] > threshold) ? 1 : 0;
+// Function to build the column segment tree for a particular row
+void buildRow(int row, int lx, int rx, int col, int ly, int ry,
+              WeatherData weather_matrix[GRID_SIZE][GRID_SIZE], int attribute) {
+    // Case for a single column
+    if (ly == ry) {
+        // Case for a single row
+        if (lx == rx) {
+            // Initialize sum and max with the value from the attribute matrix
+            double value = getAttributeValue(weather_matrix[lx][ly], attribute);
+            RangeSum[row][col] = value;
+            RangeMax[row][col] = value;
+            marked[lx][ly] = (value > THRESHOLD) ? 1 : 0;
         }
-        //case when not a single row.
-        else
-        {
-            // merge the max and sum value for the row's children.
+        // Case when not a single row
+        else {
+            // Merge the max and sum values for the row's children
             RangeSum[row][col] = RangeSum[2 * row][col] + RangeSum[2 * row + 1][col];
-            RangeMax[row][col] = max(RangeMax[2 * row][col], RangeMax[2 * row + 1][col]);
+            RangeMax[row][col] = fmax(RangeMax[2 * row][col], RangeMax[2 * row + 1][col]);
         }
     }
-    // case when not a single column.
-    else
-    {
-        // recursively building for each half.
-        int my = (ly + ry) / 2; // middle column index for splitting.
-        buildRow(row, lx, rx, 2 * col, ly, my);           // building the left child.
-        buildRow(row, lx, rx, 2 * col + 1, my + 1, ry);   // building the right child.
-        // merging the left and right child values.
+    // Case when not a single column
+    else {
+        int my = (ly + ry) / 2; // Middle column index for splitting
+        buildRow(row, lx, rx, 2 * col, ly, my, weather_matrix, attribute);       // Left child
+        buildRow(row, lx, rx, 2 * col + 1, my + 1, ry, weather_matrix, attribute); // Right child
+        // Merge left and right child values
         RangeSum[row][col] = RangeSum[row][2 * col] + RangeSum[row][2 * col + 1];
-        RangeMax[row][col] = max(RangeMax[row][2 * col], RangeMax[row][2 * col + 1]);
+        RangeMax[row][col] = fmax(RangeMax[row][2 * col], RangeMax[row][2 * col + 1]);
     }
 }
 
-// row: index in the segment tree for rows
-// lx, rx: range of rows being covered by the current node
-
-// function to build the entire 2D segment tree for answering queries.
-
-void build(int row, int lx, int rx)
-{
-    // case when not a single row.
-    if (lx != rx)
-    {
-        int mid = (lx + rx) / 2;       // calculating the middle row index.
-        build(2 * row, lx, mid);       // building the left child for the row segment.
-        build(2 * row + 1, mid + 1, rx); // building the right child for the row segment.
+// Function to build the entire 2D segment tree for answering queries
+void build(int row, int lx, int rx, WeatherData weather_matrix[GRID_SIZE][GRID_SIZE], int attribute, int m) {
+    // Case when not a single row
+    if (lx != rx) {
+        int mid = (lx + rx) / 2; // Middle row index
+        build(2 * row, lx, mid, weather_matrix, attribute, m);      // Left child
+        build(2 * row + 1, mid + 1, rx, weather_matrix, attribute, m); // Right child
     }
-
-    // building the column segment for this row segment.
-    buildRow(row, lx, rx, 1, 0, m - 1);
+    // Build the column segment for this row segment
+    buildRow(row, lx, rx, 1, 0, m - 1, weather_matrix, attribute);
 }
+
 
 // function to query the sum of a rectangular sub-region for a specific row segment
 // parameters:
@@ -441,8 +452,8 @@ int countRegions(int **regions, int numRow, int numCol) {
     return numRegions; // return the total number of connected regions.
 }
 
-// Function to read CSV file and populate rain matrix
-void read_csv(const char *filename, double rain_matrix[GRID_SIZE][GRID_SIZE], double temp_matrix[GRID_SIZE][GRID_SIZE], double aqi_matrix[GRID_SIZE][GRID_SIZE], double humidity_matrix[GRID_SIZE][GRID_SIZE]) {
+// Function to read CSV file and populate the weather matrix
+void read_csv(const char *filename, WeatherData weather_matrix[GRID_SIZE][GRID_SIZE]) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         perror("Unable to open file");
@@ -450,34 +461,31 @@ void read_csv(const char *filename, double rain_matrix[GRID_SIZE][GRID_SIZE], do
     }
 
     char line[MAX_LINE_LENGTH];
-    double rain, temp, aqi, humidity;
     int n = 0; // Counter for filling the grid
 
-    // Initialize the matrices with missing values
+    // Initialize the matrix with missing values
     for (int i = 0; i < GRID_SIZE; i++) {
         for (int j = 0; j < GRID_SIZE; j++) {
-            rain_matrix[i][j] = MISSING_VALUE;
-            temp_matrix[i][j] = MISSING_VALUE;
-            aqi_matrix[i][j] = MISSING_VALUE;
-            humidity_matrix[i][j] = MISSING_VALUE;
+            weather_matrix[i][j].rain = MISSING_VALUE;
+            weather_matrix[i][j].temp = MISSING_VALUE;
+            weather_matrix[i][j].aqi = MISSING_VALUE;
+            weather_matrix[i][j].humidity = MISSING_VALUE;
         }
     }
 
     // Read each line in the CSV file, skipping the header
     fgets(line, sizeof(line), file); // Skip header line
     while (fgets(line, sizeof(line), file)) {
+        WeatherData data;
         // Parse rain, temp, aqi, and humidity values from the CSV line
-        if (sscanf(line, "%*lf,%*lf,%lf,%*lf,%*lf,%lf,%lf,%lf", &rain, &temp, &aqi, &humidity) == 4) {
+        if (sscanf(line, "%*lf,%*lf,%lf,%*lf,%*lf,%lf,%lf,%lf", &data.rain, &data.temp, &data.aqi, &data.humidity) == 4) {
             // Calculate row and column based on counter n
             int row = n / GRID_SIZE;
             int col = n % GRID_SIZE;
 
             // Check if indices are within the matrix bounds
             if (row < GRID_SIZE && col < GRID_SIZE) {
-                rain_matrix[row][col] = rain;
-                temp_matrix[row][col] = temp;
-                aqi_matrix[row][col] = aqi;
-                humidity_matrix[row][col] = humidity;
+                weather_matrix[row][col] = data;
                 n++; // Increment the counter
             } else {
                 fprintf(stderr, "Index out of bounds for n: %d\n", n);
@@ -491,43 +499,19 @@ void read_csv(const char *filename, double rain_matrix[GRID_SIZE][GRID_SIZE], do
     fclose(file);
 }
 
+
 int main()
 {    
-    double rain_matrix[GRID_SIZE][GRID_SIZE];
-    double temp_matrix[GRID_SIZE][GRID_SIZE];
-    double aqi_matrix[GRID_SIZE][GRID_SIZE];
-    double humidity_matrix[GRID_SIZE][GRID_SIZE];
-
-
-    // Read the CSV data and populate the matrices
-    read_csv("combined_data_2019.csv", rain_matrix, temp_matrix, aqi_matrix, humidity_matrix);
+    WeatherData weather_matrix[GRID_SIZE][GRID_SIZE]; // Initialize this with your data
+    int n = GRID_SIZE; // Adjust to your grid's actual size
+    int m = GRID_SIZE;
     
-    // input sample grid size.
-    n = 4;
-    m = 4;
-
-    // sample grid
-
-    int temp[4][4] = {
-        {1, 2, 3, 4},
-        {5, 6, 7, 8},
-        {9, 10, 11, 12},
-        {13, 14, 15, 16}
-    };
-
-    // copying the grid to the declared global grid.
-    threshold = 10; // Example threshold
-    // Copy example grid to global grid
-    for (int i = 0; i < n; i++)
-    {
-        for (int j = 0; j < m; j++)
-        {
-            grid[i][j] = temp[i][j];
-        }
-    }
-
-    //building the segment tree for the input grid.
-    build(1, 0, n - 1);
+    // Call build function to construct the segment tree
+    build(1, 0, n - 1, weather_matrix, 0, m);
+    
+    // Read the CSV data and populate the matrices
+    read_csv("combined_data_2019.csv", weather_matrix);
+   
 
     // performing sum query 
     printf("Sum of subgrid (1, 1) to (3, 3): %d\n", sumQuery(1, 0, n - 1, 1, 3, 1, 3));
