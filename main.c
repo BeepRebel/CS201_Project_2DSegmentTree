@@ -267,6 +267,24 @@ double sumQuery(Data* data, SegmentTree2D *segTree, int row, int t_lx, int t_rx,
            sumQuery(data, segTree, 2 * row + 1, t_mid + 1, t_rx, max(lx, t_mid + 1), rx, ly, ry , attribute); // right child query
 }
 
+// function to query the average value of a rectangular sub-region in the 2D segment tree
+// parameters:
+// - row: the index representing the current row segment in the segment tree
+// - t_lx, t_rx: the range of rows that the current node covers
+// - lx, rx: the range of rows we want to query for the average value
+// - ly, ry: the range of columns we want to query for the average value
+// - attribute: the specific attribute index we're querying
+double avgQuery(Data* data, SegmentTree2D *segTree, int row, int t_lx, int t_rx, int lx, int rx, int ly, int ry, int attribute) {
+    // call sumQuery to get the total sum of the attribute in the specified range
+    int totalSum = sumQuery(data, segTree, row, t_lx, t_rx, lx, rx, ly, ry, attribute);
+
+    // calculate the number of cells in the subgrid (rows * columns)
+    int numCells = (rx - lx + 1) * (ry - ly + 1);
+
+    // calculate and return the average value
+    return (double)totalSum / numCells;
+}
+
 // function to query the maximum value of a rectangular sub-region for a specific row segment
 // parameters:
 // - row: the index representing the current row segment in the segment tree
@@ -705,14 +723,19 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
     query.result = 0.0;
 
     if (strcasecmp(type, "Range") == 0) {
-        printf("Enter range query type (Sum, Max or Min): ");
+        printf("Enter range query type (Sum, Avg, Max or Min): ");
         scanf("%s", query.rangeType);
 
         printf("Enter coordinates (x1, y1, x2, y2): ");
         scanf("%d %d %d %d", &query.x1, &query.y1, &query.x2, &query.y2);
 
         start = clock();
-        if (strcasecmp(query.rangeType, "Sum") == 0) {
+        if (strcasecmp(query.rangeType, "Avg") == 0) {
+            // Call avg query function with data and other parameters
+            query.result = avgQuery(data, segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, attribute);
+            
+        } 
+        else if (strcasecmp(query.rangeType, "Sum") == 0) {
             // Call sum query function with data and other parameters
             query.result = sumQuery(data, segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, attribute);
             
