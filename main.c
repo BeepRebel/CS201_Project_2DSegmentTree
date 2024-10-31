@@ -715,17 +715,17 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
         if (strcasecmp(query.rangeType, "Sum") == 0) {
             // Call sum query function with data and other parameters
             query.result = sumQuery(data, segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, attribute);
-            printf("Sum of subgrid (1, 1) to (3, 3): %d\n",query.result);
+            
         } 
         else if (strcasecmp(query.rangeType, "Max") == 0) {
             // Call max query function with data and other parameters
             query.result = maxQuery( segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, attribute);
-            printf("Max value in subgrid (1, 1) to (3, 3): %d\n",query.result);
+            
         } 
         else if (strcasecmp(query.rangeType, "Min") == 0) {
             // Call min query function with data and other parameters
             query.result = minQuery( segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, attribute);
-            printf("Min value in subgrid (1, 1) to (3, 3): %d\n",query.result);
+            
         } 
         else {
             fprintf(outputFile, "Query failed: Unsupported range query type '%s'\n", query.rangeType);

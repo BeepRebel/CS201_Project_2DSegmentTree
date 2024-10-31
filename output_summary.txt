@@ -1,0 +1,12 @@
+Output Metadata:
+Dataset: environmental_data.csv
+Generated on: Thu Oct 31 17:43:39 2024
+
+
+Query Type: Range
+Range Query Type: Sum
+Coordinates: (1, 1) to (3, 3)
+Result: 21.70
+Time Taken: 0.000 seconds
+
+Total Queries Processed: 1
