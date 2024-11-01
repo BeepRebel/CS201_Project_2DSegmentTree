@@ -12,97 +12,115 @@
 
 int rows, cols;                           // dimensions of the grid.
  
+// structure to hold the minimum and maximum thresholds
 typedef struct {
     double min;
     double max;
 } Threshold;
 
+// structure for a 2D segment tree to store statistical information of the data grid
 typedef struct {
     int rows, cols;
-    double ***minMatrix; // 3D matrix to hold min values for each parameter
-    double ***maxMatrix; // 3D matrix to hold max values for each parameter
+    double ***minMatrix; // 3D matrix to hold minimum values for each parameter
+    double ***maxMatrix; // 3D matrix to hold maximum values for each parameter
     double ***sumMatrix; // 3D matrix to hold sum values for each parameter
 } SegmentTree2D;
 
+// structure for holding the primary data matrices
 typedef struct {
-    int rows , cols;
-    double **temp;
-    double **humidity;
-    double **rain;
+    int rows, cols;
+    double **temp;       // matrix for temperature values
+    double **humidity;   // matrix for humidity values
+    double **rain;       // matrix for rain values
 } Data;
 
+// structure to define a query with various parameters
 typedef struct {
-    int x1, y1, x2, y2;
-    int row, col, value;
-    char rangeType[10];
-    int valid;
-    double result;
-    double timeTaken;
-    int attribute;
+    int x1, y1, x2, y2;       // coordinates for the query range
+    int row, col, value;      // specific row, column, and value for point queries
+    char rangeType[10];       // type of range for the query (e.g., min, max, sum)
+    int valid;                // flag to indicate if the query is valid
+    double result;            // result of the query
+    double timeTaken;         // time taken to execute the query
+    int attribute;            // specifies the attribute (e.g., temp, humidity, rain) for the query
 } Query;
 
-// Helper function to allocate 2D Segment Tree matrices
-SegmentTree2D *create2DSegmentTree(int rows, int cols) {
-    SegmentTree2D *tree = malloc(sizeof(SegmentTree2D));
-    tree->rows = rows;
-    tree->cols = cols;
 
-    // Allocate memory for each parameter (temperature, humidity, rain)
+// helper function to allocate 2D Segment Tree matrices
+SegmentTree2D *create2DSegmentTree(int rows, int cols) {
+    // allocate memory for the SegmentTree2D structure
+    SegmentTree2D *tree = malloc(sizeof(SegmentTree2D));
+    tree->rows = rows; // set number of rows
+    tree->cols = cols; // set number of columns
+
+    // allocate memory for min, max, and sum matrices, each having 4*rows
     tree->minMatrix = (double***)malloc(4 * rows * sizeof(double**));
     tree->maxMatrix = (double***)malloc(4 * rows * sizeof(double**));
     tree->sumMatrix = (double***)malloc(4 * rows * sizeof(double**));
 
+    // loop through each row of the 3D matrices
     for (int k = 0; k < 4 * rows; ++k) {
+        // allocate memory for each row's columns in the matrices
         tree->minMatrix[k] = (double**)malloc(4 * cols * sizeof(double*));
         tree->maxMatrix[k] = (double**)malloc(4 * cols * sizeof(double*));
         tree->sumMatrix[k] = (double**)malloc(4 * cols * sizeof(double*));
 
-        for (int i = 0; i < 4*cols; ++i) {
+        // loop through each column in the current row
+        for (int i = 0; i < 4 * cols; ++i) {
+            // allocate space for 3 parameters (e.g., temperature, humidity, rain) in each cell
             tree->minMatrix[k][i] = (double*)malloc(3 * sizeof(double));
             tree->maxMatrix[k][i] = (double*)malloc(3 * sizeof(double));
             tree->sumMatrix[k][i] = (double*)malloc(3 * sizeof(double));
-            for(int j = 0 ; j < 3 ; j++){
-            tree->minMatrix[k][i][j] = DBL_MAX;
-            tree->maxMatrix[k][i][j] = -DBL_MAX;
-            tree->sumMatrix[k][i][j] = 0.0;
+
+            // initialize the values for each parameter
+            for (int j = 0; j < 3; j++) {
+                // set initial minimum values to the largest possible double
+                tree->minMatrix[k][i][j] = DBL_MAX;
+                // set initial maximum values to the smallest possible double
+                tree->maxMatrix[k][i][j] = -DBL_MAX;
+                // initialize sum values to zero
+                tree->sumMatrix[k][i][j] = 0.0;
             }
         }
     }
 
-    return tree;
+    return tree; // return the pointer to the created segment tree
 }
 
-Data *createDataMatrix(int rows, int cols)
-{
+Data *createDataMatrix(int rows, int cols) {
+    // allocate memory for the Data structure
     Data *data = (Data *)malloc(sizeof(Data));
-    data->rows = rows;
-    data->cols = cols;
+    data->rows = rows; // set the number of rows
+    data->cols = cols; // set the number of columns
 
-    // Allocate 4x larger matrices for segment tree data
+    // allocate memory for temperature, humidity, and rain matrices
     data->temp = (double **)malloc(rows * sizeof(double *));
     data->humidity = (double **)malloc(rows * sizeof(double *));
     data->rain = (double **)malloc(rows * sizeof(double *));
 
-    for (int i = 0; i < rows; i++)
-    {
+    // loop through each row to allocate columns and initialize values
+    for (int i = 0; i < rows; i++) {
+        // allocate memory for each column in the matrices
         data->temp[i] = (double *)malloc(cols * sizeof(double));
         data->humidity[i] = (double *)malloc(cols * sizeof(double));
         data->rain[i] = (double *)malloc(cols * sizeof(double));
-        for (int j = 0; j < cols; j++)
-        {
-            data->temp[i][j] = 0.0;
-            data->humidity[i][j] = 0.0;
-            data->rain[i][j] = 0.0;
+
+        // initialize each cell to 0.0
+        for (int j = 0; j < cols; j++) {
+            data->temp[i][j] = 0.0;       // set initial temperature to 0.0
+            data->humidity[i][j] = 0.0;   // set initial humidity to 0.0
+            data->rain[i][j] = 0.0;       // set initial rain value to 0.0
         }
     }
-    return data;
+
+    return data; // return the pointer to the initialized data matrix
 }
 
 // Helper function to free the Segment Tree matrices
-void freeSegmentTree(SegmentTree2D *tree, int parameters) {
-    // Free each parameter's matrices (minMatrix, maxMatrix, sumMatrix)
-    for (int k = 0; k < parameters; ++k) {
-        for (int i = 0; i < tree->rows; ++i) {
+void free2DSegmentTree(SegmentTree2D *tree) {
+    // free each allocated level in the segment tree matrices
+    for (int k = 0; k < 4 * tree->rows; ++k) {
+        for (int i = 0; i < 4 * tree->cols; ++i) {
             free(tree->minMatrix[k][i]);
             free(tree->maxMatrix[k][i]);
             free(tree->sumMatrix[k][i]);
@@ -112,12 +130,12 @@ void freeSegmentTree(SegmentTree2D *tree, int parameters) {
         free(tree->sumMatrix[k]);
     }
 
-    // Free the outermost arrays
+    // free the top-level pointers for minMatrix, maxMatrix, and sumMatrix
     free(tree->minMatrix);
     free(tree->maxMatrix);
     free(tree->sumMatrix);
 
-    // Free the SegmentTree2D structure itself
+    // finally, free the SegmentTree2D structure itself
     free(tree);
 }
 
@@ -801,7 +819,7 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
         fprintf(outputFile ,"Top-left corner: (%d, %d)\n", topLeftX, topLeftY);
         fprintf(outputFile ,"Bottom-right corner: (%d, %d)\n", bottomRightX, bottomRightY); 
         fprintf(outputFile ,"No. of Regions are: %d\n" , numRegions);
-        
+
     }
     else {
         fprintf(outputFile, "Query failed: Unsupported query type '%s'\n", type);
