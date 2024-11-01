@@ -704,15 +704,22 @@ int read_data(const char *file_path, Data* data, int rows, int cols) {
     fclose(file);
     return 0;
 }
-void updateMarked(int **marked , Data *data , Threshold *thresholds){
-    for(int i = 0 ; i < rows ; i++){
-        for(int j = 0 ; j < cols ; j++){
-            if((data->temp[i][j] > thresholds[0].min && data->temp[i][j] < thresholds[0].max)&&(data->humidity[i][j] > thresholds[1].min && data->humidity[i][j] < thresholds[1].max)&&(data->rain[i][j] > thresholds[2].min && data->rain[i][j] < thresholds[2].max)) marked[i][j] = 1;
-            else marked[i][j] = 0;
+
+void updateMarked(int **marked, Data *data, Threshold *thresholds, int rows, int cols) {
+    for (int i = 0; i < rows; i++) {
+        for (int j = 0; j < cols; j++) {
+            if ((data->temp[i][j] > thresholds[0].min && data->temp[i][j] < thresholds[0].max) &&
+                (data->humidity[i][j] > thresholds[1].min && data->humidity[i][j] < thresholds[1].max) &&
+                (data->rain[i][j] > thresholds[2].min && data->rain[i][j] < thresholds[2].max)) {
+                marked[i][j] = 1;
+            } else {
+                marked[i][j] = 0;
+            }
         }
     }
 }
-void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *type, int**marked , Threshold *thresholds) {
+
+void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *type, int** marked , Threshold *thresholds) {
     clock_t start, end;
     Query query;
     
@@ -774,24 +781,27 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
         printf("Updated successfully!");
         fprintf(outputFile, "Update performed at coordinates (%d, %d) with value %d\n", query.row, query.col, query.value);
     }
-    else if (strcasecmp(type, "Threshold") == 0){
+    else if (strcasecmp(type, "Combined") == 0){
         printf("Enter min and max values for temperature: ");
-        scanf("%2.f %2.f", thresholds[0].min , thresholds[0].max);
-        printf("Enter min and max value for humidity: ");
-        scanf("%2.f %2.f", thresholds[1].min , thresholds[1].max);
-        printf("Enter min and max value for rain: ");
-        scanf("%2.f %2.f", thresholds[2].min , thresholds[2].max);
-        updateMarked(marked , data , thresholds);
+        scanf("%lf %lf", &thresholds[0].min, &thresholds[0].max);
+        printf("Enter min and max values for humidity: ");
+        scanf("%lf %lf", &thresholds[1].min, &thresholds[1].max);
+        printf("Enter min and max values for rain: ");
+        scanf("%lf %lf", &thresholds[2].min, &thresholds[2].max);
+
+        updateMarked(marked , data , thresholds , rows , cols);
         int topLeftX, topLeftY, bottomRightX, bottomRightY;
         int maxArea = maximalRegion(marked, rows, cols, &topLeftX, &topLeftY, &bottomRightX, &bottomRightY);
-
-        printf("Maximal Rectangle Area: %d\n", maxArea);
-        printf("Top-left corner: (%d, %d)\n", topLeftX, topLeftY);
-        printf("Bottom-right corner: (%d, %d)\n", bottomRightX, bottomRightY);
-
         int numRegions = countRegions(marked , rows , cols);
-        printf("%d\n" , numRegions);
 
+        fprintf(outputFile ,"Temperature thresholds: min = %.2f, max = %.2f\n", thresholds[0].min, thresholds[0].max);
+        fprintf(outputFile ,"Humidity thresholds: min = %.2f, max = %.2f\n", thresholds[1].min, thresholds[1].max);
+        fprintf(outputFile ,"Rain thresholds: min = %.2f, max = %.2f\n", thresholds[2].min, thresholds[2].max);
+        fprintf(outputFile ,"Maximal Rectangle Area: %d\n", maxArea);
+        fprintf(outputFile ,"Top-left corner: (%d, %d)\n", topLeftX, topLeftY);
+        fprintf(outputFile ,"Bottom-right corner: (%d, %d)\n", bottomRightX, bottomRightY); 
+        fprintf(outputFile ,"No. of Regions are: %d\n" , numRegions);
+        
     }
     else {
         fprintf(outputFile, "Query failed: Unsupported query type '%s'\n", type);
@@ -868,7 +878,7 @@ int main()
     int processedQueries = 0;
     char type[256];
     while (1) {
-        printf("\nEnter query type (Range, Update, Threshold): or type 'exit' to finish: ");
+        printf("\nEnter query type (Range, Update, Combined): or type 'exit' to finish: ");
         scanf("%s", type);
 
         if (strcasecmp(type, "exit") == 0) {
