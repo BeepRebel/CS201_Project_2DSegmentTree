@@ -37,7 +37,8 @@ typedef struct {
 // structure to define a query with various parameters
 typedef struct {
     int x1, y1, x2, y2;       // coordinates for the query range
-    int row, col, value;      // specific row, column, and value for point queries
+    int row, col;      // specific row, column, and value for point queries
+    double value;
     char rangeType[10];       // type of range for the query (e.g., min, max, sum)
     int valid;                // flag to indicate if the query is valid
     double result;            // result of the query
@@ -412,7 +413,7 @@ double minQuery(SegmentTree2D *segTree, int row, int t_lx, int t_rx, int lx, int
 // - ly, ry: the range of columns being covered by the current node
 // - a, b: the coordinates (row, column) of the point we want to update
 // - value: the new value to update the point to
-void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int col, int ly, int ry, int a, int b, int value , Threshold* thresholds , int** marked , int attribute)
+void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int col, int ly, int ry, int a, int b, double value , Threshold* thresholds , int** marked , int attribute)
 {
     // if we're at a single column (a leaf node in the column segment tree)
     if (ly == ry)
@@ -455,7 +456,7 @@ void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int 
         // after updating the children, merge their sums and max values
             segTree->sumMatrix[row][col][attribute] = segTree->sumMatrix[row][2 * col][attribute] + segTree->sumMatrix[row][2 * col + 1][attribute]; // merge sums
             segTree->maxMatrix[row][col][attribute] = fmax(segTree->maxMatrix[row][2 * col][attribute], segTree->maxMatrix[row][2 * col + 1][attribute]);                          // merge maxes
-            segTree->minMatrix[row][col][attribute] = fmax(segTree->minMatrix[row][2 * col][attribute], segTree->minMatrix[row][2 * col + 1][attribute]);                          // merge maxes
+            segTree->minMatrix[row][col][attribute] = fmin(segTree->minMatrix[row][2 * col][attribute], segTree->minMatrix[row][2 * col + 1][attribute]);                          // merge maxes
     }
 }
 
@@ -465,7 +466,7 @@ void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int 
 // - lx, rx: the range of rows being covered by the current node
 // - a, b: the coordinates (row, column) of the point we want to update
 // - value: the new value to update the point to
-void update(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int a, int b, int value , Threshold *thresholds, int** marked , int attribute)
+void update(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int a, int b, double value , Threshold *thresholds, int** marked , int attribute)
 {
     // if it's not a single row (non-leaf node in the row segment tree)
     if (lx != rx)
@@ -790,14 +791,14 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
         scanf("%d", &query.attribute);
 
         printf("Enter value to update at (%d, %d): ", query.row, query.col);
-        scanf("%d", &query.value);
+        scanf("%lf", &query.value);
 
         start = clock();
         // Call update function with row, column, and value
         update(data,segTree, 1, 0, GRID_SIZE - 1, query.row, query.col, query.value, thresholds, marked , query.attribute);
         end = clock();
         printf("Updated successfully!");
-        fprintf(outputFile, "Update performed at coordinates (%d, %d) with value %d\n", query.row, query.col, query.value);
+        fprintf(outputFile, "Update performed at coordinates (%d, %d) with value %.2f\n", query.row, query.col, query.value);
     }
     else if (strcasecmp(type, "Combined") == 0){
         printf("Enter min and max values for temperature: ");
@@ -880,7 +881,12 @@ int main()
         fprintf(stderr, "Error reading data from file.\n");
         return EXIT_FAILURE;
     }
-
+    for(int i = 0 ; i < 10 ; i++){
+        for(int j = 0 ; j < 10 ; j++){
+            printf("%.2f " , data->rain[i][j]);
+        }
+        printf("\n");
+    }
     build(data, segTree, 1, 0, rows - 1 , cols , thresholds , markedArray); //building the segment tree.
     //taking the output.
     FILE *outputFile = fopen("output_summary.txt", "w");
@@ -913,7 +919,7 @@ int main()
 
     //Free allocated memory.
     free_data(data, rows);
-    freeSegmentTree(segTree , 3);
+    free2DSegmentTree(segTree);
     for (int i = 0; i < rows; i++) {
         free(markedArray[i]);
     }
