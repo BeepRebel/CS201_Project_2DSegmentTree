@@ -18,8 +18,8 @@ Mentoring TA
 ## Files Included
 
 The project includes two data files:
-- **`data_2022.txt`**: Environmental data for the year 2022
-- **`data_2023.txt`**: Environmental data for the year 2023
+- **`environmental_data_2022.txt`**: Environmental data for the year 2022
+- **`environmental_data_2023.txt`**: Environmental data for the year 2023
 - **`main.c`**; contains the main code
 
 The program reads data from the selected year’s file and builds a 2D Segment Tree to support operations based on this structured data.
