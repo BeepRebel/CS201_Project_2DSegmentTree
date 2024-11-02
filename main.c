@@ -8,7 +8,8 @@
 #include <strings.h>
 #include <string.h>
 
-#define GRID_SIZE 100
+#define MAX_ROWS 100
+#define MAX_COLS 100
 
 int rows, cols;                           // dimensions of the grid.
  
@@ -29,15 +30,16 @@ typedef struct {
 // structure for holding the primary data matrices
 typedef struct {
     int rows, cols;
-    double **humidity;       // matrix for temperature values
-    double **rain;   // matrix for humidity values
-    double **temp;       // matrix for rain values
+    double **temp;       // matrix for temperature values
+    double **humidity;   // matrix for humidity values
+    double **rain;       // matrix for rain values
 } Data;
 
 // structure to define a query with various parameters
 typedef struct {
     int x1, y1, x2, y2;       // coordinates for the query range
-    int row, col, value;      // specific row, column, and value for point queries
+    int row, col;      // specific row, column, and value for point queries
+    double value;
     char rangeType[10];       // type of range for the query (e.g., min, max, sum)
     int valid;                // flag to indicate if the query is valid
     double result;            // result of the query
@@ -54,19 +56,19 @@ SegmentTree2D *create2DSegmentTree(int rows, int cols) {
     tree->cols = cols; // set number of columns
 
     // allocate memory for min, max, and sum matrices, each having 4*rows
-    tree->minMatrix = (double***)malloc(4 * rows * sizeof(double**));
-    tree->maxMatrix = (double***)malloc(4 * rows * sizeof(double**));
-    tree->sumMatrix = (double***)malloc(4 * rows * sizeof(double**));
+    tree->minMatrix = (double***)malloc(((4 * rows) + 1) * sizeof(double**));
+    tree->maxMatrix = (double***)malloc(((4 * rows) + 1) * sizeof(double**));
+    tree->sumMatrix = (double***)malloc(((4 * rows) + 1) * sizeof(double**));
 
     // loop through each row of the 3D matrices
-    for (int k = 0; k < 4 * rows; ++k) {
+    for (int k = 0; k < (4 * rows) + 1; ++k) {
         // allocate memory for each row's columns in the matrices
-        tree->minMatrix[k] = (double**)malloc(4 * cols * sizeof(double*));
-        tree->maxMatrix[k] = (double**)malloc(4 * cols * sizeof(double*));
-        tree->sumMatrix[k] = (double**)malloc(4 * cols * sizeof(double*));
+        tree->minMatrix[k] = (double**)malloc(((4 * cols) + 1) * sizeof(double*));
+        tree->maxMatrix[k] = (double**)malloc(((4 * cols) + 1) * sizeof(double*));
+        tree->sumMatrix[k] = (double**)malloc(((4 * cols) + 1) * sizeof(double*));
 
         // loop through each column in the current row
-        for (int i = 0; i < 4 * cols; ++i) {
+        for (int i = 0; i < (4 * cols) + 1; ++i) {
             // allocate space for 3 parameters (e.g., temperature, humidity, rain) in each cell
             tree->minMatrix[k][i] = (double*)malloc(3 * sizeof(double));
             tree->maxMatrix[k][i] = (double*)malloc(3 * sizeof(double));
@@ -117,10 +119,10 @@ Data *createDataMatrix(int rows, int cols) {
 }
 
 // Helper function to free the Segment Tree matrices
-void freeSegmentTree(SegmentTree2D *tree) {
+void free2DSegmentTree(SegmentTree2D *tree) {
     // free each allocated level in the segment tree matrices
-    for (int k = 0; k < 4 * tree->rows; ++k) {
-        for (int i = 0; i < 4 * tree->cols; ++i) {
+    for (int k = 0; k < (4 * tree->rows) + 1; ++k) {
+        for (int i = 0; i < (4 * tree->cols) + 1; ++i) {
             free(tree->minMatrix[k][i]);
             free(tree->maxMatrix[k][i]);
             free(tree->sumMatrix[k][i]);
@@ -412,7 +414,7 @@ double minQuery(SegmentTree2D *segTree, int row, int t_lx, int t_rx, int lx, int
 // - ly, ry: the range of columns being covered by the current node
 // - a, b: the coordinates (row, column) of the point we want to update
 // - value: the new value to update the point to
-void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int col, int ly, int ry, int a, int b, int value , Threshold* thresholds , int** marked , int attribute)
+void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int col, int ly, int ry, int a, int b, double value , Threshold* thresholds , int** marked , int attribute)
 {
     // if we're at a single column (a leaf node in the column segment tree)
     if (ly == ry)
@@ -455,7 +457,7 @@ void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int 
         // after updating the children, merge their sums and max values
             segTree->sumMatrix[row][col][attribute] = segTree->sumMatrix[row][2 * col][attribute] + segTree->sumMatrix[row][2 * col + 1][attribute]; // merge sums
             segTree->maxMatrix[row][col][attribute] = fmax(segTree->maxMatrix[row][2 * col][attribute], segTree->maxMatrix[row][2 * col + 1][attribute]);                          // merge maxes
-            segTree->minMatrix[row][col][attribute] = fmax(segTree->minMatrix[row][2 * col][attribute], segTree->minMatrix[row][2 * col + 1][attribute]);                          // merge maxes
+            segTree->minMatrix[row][col][attribute] = fmin(segTree->minMatrix[row][2 * col][attribute], segTree->minMatrix[row][2 * col + 1][attribute]);                          // merge maxes
     }
 }
 
@@ -465,7 +467,7 @@ void updateRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int 
 // - lx, rx: the range of rows being covered by the current node
 // - a, b: the coordinates (row, column) of the point we want to update
 // - value: the new value to update the point to
-void update(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int a, int b, int value , Threshold *thresholds, int** marked , int attribute)
+void update(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int a, int b, double value , Threshold *thresholds, int** marked , int attribute)
 {
     // if it's not a single row (non-leaf node in the row segment tree)
     if (lx != rx)
@@ -699,9 +701,9 @@ int read_data(const char *file_path, Data* data, int rows, int cols) {
     while (fgets(line, sizeof(line), file)) {
         double rain_val, temp_val, humidity_val, aqi_val;
         // Parse rain, temp, humidity, and aqi values from CSV line
-        if (sscanf(line, "%lf,%*lf,%lf,%*lf,%lf,%lf,%*lf,%*lf", &temp_val, &humidity_val, &rain_val, &aqi_val) == 4) {
-            int row = n / GRID_SIZE;
-            int col = n % GRID_SIZE;
+        if (sscanf(line, "%*lf,%*lf,%lf,%*lf,%*lf,%lf,%lf,%lf", &rain_val, &temp_val, &aqi_val, &humidity_val) == 4) {
+            int row = n / cols;
+            int col = n % cols;
 
             // Check if indices are within the matrix bounds
             if (row < rows && col < cols) {
@@ -726,9 +728,9 @@ int read_data(const char *file_path, Data* data, int rows, int cols) {
 void updateMarked(int **marked, Data *data, Threshold *thresholds, int rows, int cols) {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
-            if ((data->rain[i][j] > thresholds[0].min && data->rain[i][j] < thresholds[0].max) &&
-                (data->temp[i][j] > thresholds[1].min && data->temp[i][j] < thresholds[1].max) &&
-                (data->humidity[i][j] > thresholds[2].min && data->humidity[i][j] < thresholds[2].max)) {
+            if ((data->temp[i][j] > thresholds[0].min && data->temp[i][j] < thresholds[0].max) &&
+                (data->humidity[i][j] > thresholds[1].min && data->humidity[i][j] < thresholds[1].max) &&
+                (data->rain[i][j] > thresholds[2].min && data->rain[i][j] < thresholds[2].max)) {
                 marked[i][j] = 1;
             } else {
                 marked[i][j] = 0;
@@ -743,36 +745,38 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
     
     query.valid = 1;  // Assume the query is valid initially
     query.result = 0.0;
-
+    double lat_1 , long_1 , lat_2 , long_2;
     if (strcasecmp(type, "Range") == 0) {
         printf("Enter range query type (Sum, Avg, Max or Min): ");
         scanf("%s", query.rangeType);
-
         printf("Enter coordinates (x1, y1, x2, y2): ");
-        scanf("%d %d %d %d", &query.x1, &query.y1, &query.x2, &query.y2);
-
-        printf("Enter Humidity-0, Rain-1 or Temperature-2: ");
+        scanf("%lf %lf %lf %lf", &lat_1, &long_1, &lat_2, &long_2);
+        query.x1 = (int)round((lat_1 - 9.00) / 0.20);
+        query.x2 = (int)round((lat_2 - 9.00) / 0.20);
+        query.y1 = (int)round((long_1 - 69.00) / 0.20);
+        query.y2 = (int)round((long_2 - 69.00) / 0.20);
+        printf("Enter Temperature-0, Humidity-1 or Rain-2: ");
         scanf("%d", &query.attribute);
 
         start = clock();
         if (strcasecmp(query.rangeType, "Avg") == 0) {
             // Call avg query function with data and other parameters
-            query.result = avgQuery(data, segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, query.attribute);
+            query.result = avgQuery(data, segTree, 1, 0, rows, query.x1, query.x2, query.y1, query.y2, query.attribute);
             
         } 
         else if (strcasecmp(query.rangeType, "Sum") == 0) {
             // Call sum query function with data and other parameters
-            query.result = sumQuery(data, segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, query.attribute);
+            query.result = sumQuery(data, segTree, 1, 0, rows, query.x1, query.x2, query.y1, query.y2, query.attribute);
             
         } 
         else if (strcasecmp(query.rangeType, "Max") == 0) {
             // Call max query function with data and other parameters
-            query.result = maxQuery( segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, query.attribute);
+            query.result = maxQuery( segTree, 1, 0, rows, query.x1, query.x2, query.y1, query.y2, query.attribute);
             
         } 
         else if (strcasecmp(query.rangeType, "Min") == 0) {
             // Call min query function with data and other parameters
-            query.result = minQuery( segTree, 1, 0, GRID_SIZE - 1, query.x1, query.x2, query.y1, query.y2, query.attribute);
+            query.result = minQuery( segTree, 1, 0, rows, query.x1, query.x2, query.y1, query.y2, query.attribute);
             
         } 
         else {
@@ -784,40 +788,43 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
     } 
     else if (strcasecmp(type, "Update") == 0) {
         printf("Enter coordinates to update (row, column): ");
-        scanf("%d %d", &query.row, &query.col);
+        scanf("%lf %lf", &lat_1, &long_1);
+        query.row = (int)round((lat_1 - 9.0) / 0.2);
+        query.col = (int)round((long_1 - 69.0) / 0.2);
 
-        printf("Enter Humidity-0, Rain-1 or Temperature-2: ");
+        printf("Enter Temperature-0, Humidity-1 or Rain-2: ");
         scanf("%d", &query.attribute);
 
-        printf("Enter value to update at (%d, %d): ", query.row, query.col);
-        scanf("%d", &query.value);
+        printf("Enter value to update at (%.2f, %.2f): ", lat_1, long_1);
+        scanf("%lf", &query.value);
 
         start = clock();
         // Call update function with row, column, and value
-        update(data,segTree, 1, 0, GRID_SIZE - 1, query.row, query.col, query.value, thresholds, marked , query.attribute);
+        update(data,segTree, 1, 0, rows, query.row, query.col, query.value, thresholds, marked , query.attribute);
         end = clock();
         printf("Updated successfully!");
-        fprintf(outputFile, "Update performed at coordinates (%d, %d) with value %d\n", query.row, query.col, query.value);
+        fprintf(outputFile, "Update performed at coordinates (%.2f, %.2f) with value %.2f\n", lat_1, long_1, query.value);
     }
     else if (strcasecmp(type, "Combined") == 0){
-        printf("Enter min and max values for rain: ");
-        scanf("%lf %lf", &thresholds[0].min, &thresholds[0].max);
         printf("Enter min and max values for temperature: ");
-        scanf("%lf %lf", &thresholds[1].min, &thresholds[1].max);
+        scanf("%lf %lf", &thresholds[0].min, &thresholds[0].max);
         printf("Enter min and max values for humidity: ");
+        scanf("%lf %lf", &thresholds[1].min, &thresholds[1].max);
+        printf("Enter min and max values for rain: ");
         scanf("%lf %lf", &thresholds[2].min, &thresholds[2].max);
 
         updateMarked(marked , data , thresholds , rows , cols);
         int topLeftX, topLeftY, bottomRightX, bottomRightY;
         int maxArea = maximalRegion(marked, rows, cols, &topLeftX, &topLeftY, &bottomRightX, &bottomRightY);
         int numRegions = countRegions(marked , rows , cols);
-
-        fprintf(outputFile ,"Rain thresholds: min = %.2f, max = %.2f\n", thresholds[0].min, thresholds[0].max);
-        fprintf(outputFile ,"Temperature thresholds: min = %.2f, max = %.2f\n", thresholds[1].min, thresholds[1].max);
-        fprintf(outputFile ,"Humidity thresholds: min = %.2f, max = %.2f\n", thresholds[2].min, thresholds[2].max);
+        double tl_lat = 9.0+(topLeftX * 0.2) , br_lat = 9.0+(bottomRightX * 0.2);
+        double tl_long = 69.0+(topLeftY * 0.2) , br_long = 69.0+(bottomRightY * 0.2);
+        fprintf(outputFile ,"Temperature thresholds: min = %.2f, max = %.2f\n", thresholds[0].min, thresholds[0].max);
+        fprintf(outputFile ,"Humidity thresholds: min = %.2f, max = %.2f\n", thresholds[1].min, thresholds[1].max);
+        fprintf(outputFile ,"Rain thresholds: min = %.2f, max = %.2f\n", thresholds[2].min, thresholds[2].max);
         fprintf(outputFile ,"Maximal Rectangle Area: %d\n", maxArea);
-        fprintf(outputFile ,"Top-left corner: (%d, %d)\n", topLeftX, topLeftY);
-        fprintf(outputFile ,"Bottom-right corner: (%d, %d)\n", bottomRightX, bottomRightY); 
+        fprintf(outputFile ,"Top-left corner: (%.2f, %.2f)\n", tl_lat, tl_long);
+        fprintf(outputFile ,"Bottom-right corner: (%.2f, %.2f)\n", br_lat, br_long); 
         fprintf(outputFile ,"No. of Regions are: %d\n" , numRegions);
 
     }
@@ -830,20 +837,20 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
     query.timeTaken = ((double)(end - start)) / CLOCKS_PER_SEC;
 
     if (query.attribute==0){
-            fprintf(outputFile, "Attribute: Humidity\n" );
+            fprintf(outputFile, "Attribute: Temperature\n" );
         }
         else if (query.attribute==1){
-            fprintf(outputFile, "Attribute: Rain\n" );
+            fprintf(outputFile, "Attribute: Humidity\n" );
         }
         else if (query.attribute==2){
-            fprintf(outputFile, "Attribute: Temperature\n" );
+            fprintf(outputFile, "Attribute: Rain\n" );
         }
 
     if (query.valid && strcasecmp(type, "Range") == 0) {
         
         fprintf(outputFile, "Query Type: %s\n", type);
         fprintf(outputFile, "Range Query Type: %s\n", query.rangeType);
-        fprintf(outputFile, "Coordinates: (%d, %d) to (%d, %d)\n", query.x1, query.y1, query.x2, query.y2);
+        fprintf(outputFile, "Coordinates: (%.2f, %.2f) to (%.2f, %.2f)\n", lat_1, long_1, lat_2, long_2);
         fprintf(outputFile, "Result: %.2f\n", query.result);
         fprintf(outputFile, "Time Taken: %.3f seconds\n\n", query.timeTaken);
         
@@ -856,8 +863,8 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
 int main()
 {
     // input sample grid size.
-    rows = GRID_SIZE;
-    cols = GRID_SIZE;
+    rows = MAX_ROWS;
+    cols = MAX_COLS;
     //initializing required arrays.
     SegmentTree2D *segTree = create2DSegmentTree(rows, cols);
     Data *data = createDataMatrix(rows , cols);
@@ -871,8 +878,8 @@ int main()
 
     //defining default thresholds
     Threshold* thresholds = malloc(3 * sizeof(Threshold));
-    thresholds[0] = (Threshold){0.0, 100.0};  
-    thresholds[1] = (Threshold){0.0, 100.0};   
+    thresholds[0] = (Threshold){0.0, 100.0};  // Temperature threshold
+    thresholds[1] = (Threshold){0.0, 100.0};   // Rain threshold
     thresholds[2] = (Threshold){0.0, 100.0};  
 
     // Read data from the file and populate the Data struct
@@ -880,7 +887,12 @@ int main()
         fprintf(stderr, "Error reading data from file.\n");
         return EXIT_FAILURE;
     }
-
+    for(int i = 0 ; i < 10 ; i++){
+        for(int j = 0 ; j < 10 ; j++){
+            printf("%.2f " , data->humidity[i][j]);
+        }
+        printf("\n");
+    }
     build(data, segTree, 1, 0, rows - 1 , cols , thresholds , markedArray); //building the segment tree.
     //taking the output.
     FILE *outputFile = fopen("output_summary.txt", "w");
@@ -913,7 +925,7 @@ int main()
 
     //Free allocated memory.
     free_data(data, rows);
-    freeSegmentTree(segTree );
+    free2DSegmentTree(segTree);
     for (int i = 0; i < rows; i++) {
         free(markedArray[i]);
     }
