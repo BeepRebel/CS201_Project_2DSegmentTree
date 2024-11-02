@@ -118,7 +118,7 @@ Data *createDataMatrix(int rows, int cols) {
     return data; // return the pointer to the initialized data matrix
 }
 
-// Helper function to free the Segment Tree matrices
+// helper function to free the Segment Tree matrices
 void free2DSegmentTree(SegmentTree2D *tree) {
     // free each allocated level in the segment tree matrices
     for (int k = 0; k < (4 * tree->rows) + 1; ++k) {
@@ -141,19 +141,16 @@ void free2DSegmentTree(SegmentTree2D *tree) {
     free(tree);
 }
 
-// Helper function to free the Segment Tree matrices
-void freeData(Data *data)
-{
-    for (int i = 0; i < data->rows; i++)
-    {
+// helper function to free the allocated memory in the Data struct
+void free_data(Data *data, int rows) {
+    for (int i = 0; i < rows; i++) {
         free(data->temp[i]);
         free(data->humidity[i]);
         free(data->rain[i]);
     }
-        free(data->temp);
-        free(data->humidity);
-        free(data->rain);
-    free(data);
+    free(data->temp);
+    free(data->humidity);
+    free(data->rain);
 }
 
 // utility function to get maximum of two numbers.
@@ -174,11 +171,10 @@ int min(int a, int b)
 // ly, ry: range of columns being covered by the current node.
 
 // function to build the column segment tree for a particular row.
-
 void buildRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int col, int ly, int ry, Threshold* thresholds , int** marked) {
-    // Case for a single column.
+    // case for a single column.
     if (ly == ry) {
-        // Case for a single row.
+        // case for a single row.
         if (lx == rx) {
             // Initialize sum and max for each parameter with the cell value.
             segTree->sumMatrix[row][col][0] = data->temp[lx][ly];
@@ -191,12 +187,12 @@ void buildRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int c
             segTree->maxMatrix[row][col][2] = data->rain[lx][ly];
             segTree->minMatrix[row][col][2] = data->rain[lx][ly];
 
-            // Set marked array based on the temperature threshold.
+            // set marked array based on the temperature threshold.
             if((data->temp[lx][ly] > thresholds[0].min && data->temp[lx][ly] < thresholds[0].max) && (data->humidity[lx][ly] > thresholds[1].min && data->humidity[lx][ly] < thresholds[1].max)&&(data->rain[lx][ly] > thresholds[2].min && data->rain[lx][ly] < thresholds[2].max)) marked[lx][ly] = 1;
         }
-        // Case when not a single row.
+        // case when not a single row.
         else {
-            // Merge the max and sum values for the row's children for each parameter.
+            // merge the max and sum values for the row's children for each parameter.
             for (int i = 0; i < 3; i++) {
                 segTree->sumMatrix[row][col][i] = segTree->sumMatrix[2 * row][col][i] + segTree->sumMatrix[2 * row + 1][col][i];
                 segTree->maxMatrix[row][col][i] = fmax(segTree->maxMatrix[2 * row][col][i], segTree->maxMatrix[2 * row + 1][col][i]);
@@ -204,14 +200,14 @@ void buildRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int c
             }
         }
     }
-    // Case when not a single column.
+    // case when not a single column.
     else {
-        // Recursively build for each half.
-        int my = (ly + ry) / 2; // Middle column index for splitting.
-        buildRow(data, segTree, row, lx, rx, 2 * col, ly, my, thresholds , marked);        // Build left child.
-        buildRow(data, segTree, row, lx, rx, 2 * col + 1, my + 1, ry, thresholds , marked); // Build right child.
+        // recursively build for each half.
+        int my = (ly + ry) / 2; // middle column index for splitting.
+        buildRow(data, segTree, row, lx, rx, 2 * col, ly, my, thresholds , marked);        // build left child.
+        buildRow(data, segTree, row, lx, rx, 2 * col + 1, my + 1, ry, thresholds , marked); // build right child.
 
-        // Merge values from left and right children for each parameter.
+        // merge values from left and right children for each parameter.
         for (int i = 0; i < 3; i++) {
             segTree->sumMatrix[row][col][i] = segTree->sumMatrix[row][2 * col][i] + segTree->sumMatrix[row][2 * col + 1][i];
             segTree->maxMatrix[row][col][i] = fmax(segTree->maxMatrix[row][2 * col][i], segTree->maxMatrix[row][2 * col + 1][i]);
@@ -223,7 +219,7 @@ void buildRow(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int c
 // row: index in the segment tree for rows
 // lx, rx: range of rows being covered by the current node
 
-// Function to build the entire 2D segment tree.
+// function to build the entire 2D segment tree.
 void build(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int cols, Threshold* thresholds , int **marked) {
     // Case when not a single row.
     if (lx != rx) {
@@ -294,13 +290,13 @@ double sumQuery(Data* data, SegmentTree2D *segTree, int row, int t_lx, int t_rx,
 
 double avgQuery(Data* data, SegmentTree2D *segTree, int row, int t_lx, int t_rx, int lx, int rx, int ly, int ry, int attribute) {
     // call sumQuery to get the total sum of the attribute in the specified range
-    int totalSum = sumQuery(data, segTree, row, t_lx, t_rx, lx, rx, ly, ry, attribute);
+    double totalSum = sumQuery(data, segTree, row, t_lx, t_rx, lx, rx, ly, ry, attribute);
 
     // calculate the number of cells in the subgrid (rows * columns)
     int numCells = (rx - lx + 1) * (ry - ly + 1);
 
     // calculate and return the average value
-    return (double)totalSum / numCells;
+    return totalSum / (double)numCells;
 }
 
 // function to query the maximum value of a rectangular sub-region for a specific row segment
@@ -357,6 +353,7 @@ double maxQuery(SegmentTree2D *segTree, int row, int t_lx, int t_rx, int lx, int
     return fmax(maxQuery(segTree, 2 * row, t_lx, t_mid, lx, min(rx, t_mid), ly, ry , attribute),              // left child query
                 maxQuery(segTree, 2 * row + 1, t_mid + 1, t_rx, max(lx, t_mid + 1), rx, ly, ry , attribute)); // right child query
 }
+
 double minQueryRow(SegmentTree2D *segTree, int row, int col, int t_ly, int t_ry, int ly, int ry , int attribute)
 {
     // if the queried range is invalid (e.g., start is greater than end), return INT_MIN as there's no valid value
@@ -493,27 +490,27 @@ void update(Data* data, SegmentTree2D *segTree, int row, int lx, int rx, int a, 
 int *nearestSmallerToLeft(int *heights, int size, int pseudo)
 {
     int *v = (int *)malloc(size * sizeof(int));
-    int stack[size][2]; // Stack to store elements and their indices
+    int stack[size][2]; // stack to store elements and their indices
     int top = -1;
 
     for (int i = 0; i < size; i++)
     {
-        // Pop elements from stack that are greater than or equal to the current element
+        // pop elements from stack that are greater than or equal to the current element
         while (top >= 0 && stack[top][0] >= heights[i])
         {
             top--;
         }
-        // Store the index of the nearest smaller element to the left, or -1 if none
+        // store the index of the nearest smaller element to the left, or -1 if none
         v[i] = (top == -1) ? pseudo : stack[top][1];
 
-        // Push current element and index to the stack
+        // push current element and index to the stack
         stack[++top][0] = heights[i];
         stack[top][1] = i;
     }
     return v;
 }
 
-// Function to find the nearest smaller elements to the right for each element in `heights`
+// function to find the nearest smaller elements to the right for each element in `heights`
 int *nearestSmallerToRight(int *heights, int size, int pseudo)
 {
     int *v1 = (int *)malloc(size * sizeof(int));
@@ -537,7 +534,7 @@ int *nearestSmallerToRight(int *heights, int size, int pseudo)
     return v1;
 }
 
-// Function to calculate the maximum area in a histogram-like row
+// function to calculate the maximum area in a histogram-like row
 int subregionArea(int *subRegions, int size, int *leftCoord, int *rightCoord, int row)
 {
     int *left = nearestSmallerToLeft(subRegions, size, -1);     // Indices of nearest smaller elements to the left
@@ -672,17 +669,6 @@ int countRegions(int **regions, int numRow, int numCol)
     }
     return numRegions; // return the total number of connected regions.
 }
-// Function to free the allocated memory in the Data struct
-void free_data(Data *data, int rows) {
-    for (int i = 0; i < rows; i++) {
-        free(data->temp[i]);
-        free(data->humidity[i]);
-        free(data->rain[i]);
-    }
-    free(data->temp);
-    free(data->humidity);
-    free(data->rain);
-}
 
 int read_data(const char *file_path, Data* data, int rows, int cols) {
     FILE *file = fopen(file_path, "r");
@@ -699,9 +685,9 @@ int read_data(const char *file_path, Data* data, int rows, int cols) {
 
     // Process each line in the CSV
     while (fgets(line, sizeof(line), file)) {
-        double rain_val, temp_val, humidity_val, aqi_val;
+        double rain_val, temp_val, humidity_val;
         // Parse rain, temp, humidity, and aqi values from CSV line
-        if (sscanf(line, "%*lf,%*lf,%lf,%*lf,%*lf,%lf,%lf,%lf", &rain_val, &temp_val, &aqi_val, &humidity_val) == 4) {
+        if (sscanf(line, "%*lf,%*lf,%lf,%lf,%lf", &temp_val, &humidity_val, &rain_val) == 3) {
             int row = n / cols;
             int col = n % cols;
 
@@ -836,7 +822,14 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
 
     query.timeTaken = ((double)(end - start)) / CLOCKS_PER_SEC;
 
-    if (query.attribute==0){
+    if (query.valid && strcasecmp(type, "Range") == 0) {
+        
+        fprintf(outputFile, "Query Type: %s\n", type);
+        fprintf(outputFile, "Range Query Type: %s\n", query.rangeType);
+        fprintf(outputFile, "Coordinates: (%.2f, %.2f) to (%.2f, %.2f)\n", lat_1, long_1, lat_2, long_2);
+        fprintf(outputFile, "Result: %.2f\n", query.result);
+        fprintf(outputFile, "Time Taken: %.3f seconds\n\n", query.timeTaken);
+        if (query.attribute==0){
             fprintf(outputFile, "Attribute: Temperature\n" );
         }
         else if (query.attribute==1){
@@ -845,14 +838,6 @@ void processQuery(FILE *outputFile, Data *data, SegmentTree2D *segTree, char *ty
         else if (query.attribute==2){
             fprintf(outputFile, "Attribute: Rain\n" );
         }
-
-    if (query.valid && strcasecmp(type, "Range") == 0) {
-        
-        fprintf(outputFile, "Query Type: %s\n", type);
-        fprintf(outputFile, "Range Query Type: %s\n", query.rangeType);
-        fprintf(outputFile, "Coordinates: (%.2f, %.2f) to (%.2f, %.2f)\n", lat_1, long_1, lat_2, long_2);
-        fprintf(outputFile, "Result: %.2f\n", query.result);
-        fprintf(outputFile, "Time Taken: %.3f seconds\n\n", query.timeTaken);
         
     } 
     else if (strcasecmp(type, "Update") == 0) {
@@ -865,6 +850,7 @@ int main()
     // input sample grid size.
     rows = MAX_ROWS;
     cols = MAX_COLS;
+
     //initializing required arrays.
     SegmentTree2D *segTree = create2DSegmentTree(rows, cols);
     Data *data = createDataMatrix(rows , cols);
@@ -883,16 +869,11 @@ int main()
     thresholds[2] = (Threshold){0.0, 100.0};  
 
     // Read data from the file and populate the Data struct
-    if (read_data("environmental_data.csv", data, rows, cols) != 0) {
+    if (read_data("environmental_data_2022.csv", data, rows, cols) != 0) {
         fprintf(stderr, "Error reading data from file.\n");
         return EXIT_FAILURE;
     }
-    for(int i = 0 ; i < 10 ; i++){
-        for(int j = 0 ; j < 10 ; j++){
-            printf("%.2f " , data->humidity[i][j]);
-        }
-        printf("\n");
-    }
+
     build(data, segTree, 1, 0, rows - 1 , cols , thresholds , markedArray); //building the segment tree.
     //taking the output.
     FILE *outputFile = fopen("output_summary.txt", "w");
@@ -903,7 +884,7 @@ int main()
     time_t now;
     time(&now);
     fprintf(outputFile, "Output Metadata:\n");
-    fprintf(outputFile, "Dataset: environmental_data.csv\n");
+    fprintf(outputFile, "Dataset: environmental_data_2022.csv\n");
     fprintf(outputFile, "Generated on: %s\n\n", ctime(&now));
     int processedQueries = 0;
     char type[256];
